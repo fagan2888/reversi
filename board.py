@@ -12,7 +12,7 @@ for row in range(8):
 
 
 class Board(object):
-    def __init__(self, p1_placed=0, p2_placed=0):
+    def __init__(self, p1_placed=0, p2_placed=0, player_turn=1):
         self.spaces = SPACES
 
         self.mask_a = 0xfefefefefefefefe
@@ -22,12 +22,12 @@ class Board(object):
         self.p1_placed = p1_placed
         self.p2_placed = p2_placed
         self.round = 0
-        self.player_turn = 1
+        self.player_turn = player_turn
 
     def init(self):
         self.p1_placed = SPACES[(3, 4)] + SPACES[(4, 3)]
         self.p2_placed = SPACES[(4, 4)] + SPACES[(3, 3)]
-        self.round = 0
+        self.round = 5
         self.player_turn = 1
 
     def __getitem__(self, index):
@@ -188,23 +188,24 @@ class Board(object):
             if opp is not None:
                 raise ValueError("Must pass both or neither of mine and opp")
 
-            if self.player_turn == 1:
-                mine = self.p1_placed
-                opp = self.p2_placed
-            else:
-                mine = self.p1_placed
-                opp = self.p2_placed
+            mine = self.p1_placed
+            opp = self.p2_placed
 
         if mine == 0 or opp == 0:
+            # someone got wiped out
             return True
 
         occupied = mine | opp
         if occupied == (1 << 64) - 1:
+            # board full
             return True
 
-        if len(self.legal_actions(mine, opp)) == 0:
+        if (len(self.legal_actions(mine, opp)) == 0 and
+            len(self.legal_actions(opp, mine)) == 0):
+            # no one can move
             return True
 
+        # keep going!
         return False
 
     def get_moves(self):
@@ -225,3 +226,9 @@ class Board(object):
                 action, self.p2_placed, self.p1_placed
             )
             self.player_turn = 1
+
+        return self.p1_placed, self.p2_placed, self.player_turn
+
+    def player_passes(self):
+        self.player_turn = (self.player_turn == 1) + 1
+        return self.p1_placed, self.p2_placed, self.player_turn

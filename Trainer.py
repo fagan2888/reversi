@@ -1,6 +1,11 @@
 import os
 import subprocess
+import sys
 import time
+
+if sys.version_info.major == 2:
+    input = raw_input
+
 
 ROOT_DIR = os.getcwd()
 
@@ -68,11 +73,18 @@ def start_player2(ai_type):
 if __name__ == "__main__":
     # Get number of rounds from input
     ais = ["qualifier", "random", "MCTS", "alpha-beta"]
+    msg = """\n\n\nSelect AI for player {}:
+    0: qualifier
+    1: random
+    2: MCTS
+    3: alpha-beta pruning
 
-    player1AI = int(input("Select player 1 AI: \n\t0: qualifier\n\t1: random\n\t2: MCTS\n\t3: alpha-beta\n"))
+    """
+
+    player1AI = int(input(msg.format(1)))
     print("Selected ", ais[player1AI], "for player 1")
 
-    player2AI = int(input("Select player 2 AI: \n\t0: qualifier\n\t1: random\n\t2: MCTS\n\t3: alpha-beta\n"))
+    player2AI = int(input(msg.format(2)))
     print("Selected ", ais[player2AI], "for player 2")
 
     rounds = int(input("How many games to perform? "))

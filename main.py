@@ -92,7 +92,6 @@ if __name__ == "__main__":
         me = int(sys.argv[3])
         you = 1 if me == 2 else 2
 
-        import cProfile
         arg = sys.argv[1]
         if ai == "random":
             player = RandomPlayer(me, you)
@@ -100,7 +99,7 @@ if __name__ == "__main__":
             player = AlphaBetaPlayer(me, you)
         elif ai =="MCTS":
             player = MCTSPlayer(me, you)
-        # player = RandomPlayer(me, you)
-        # player.play_game(arg)
+        player.play_game(arg)
 
-        cProfile.run('player.play_game("{}")'.format(arg))
+        # import cProfile
+        # cProfile.run('player.play_game("{}")'.format(arg))

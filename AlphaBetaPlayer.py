@@ -17,9 +17,11 @@ G_EDGES = [(0, 2), (0, 3), (0, 4), (0, 5), (2, 0), (3, 0), (4, 0), (5, 0),
 NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
              (1, 1)]
 
+
 def print_futures(futures):
     for value_move in futures:
         print(value_move[1], ": ", value_move[0])
+
 
 if sys.version_info.major == 2:
     range = xrange
@@ -29,6 +31,7 @@ if sys.version_info.major == 2:
 else:
     def iteritems_dict(x):
         return x.items()
+
 
 def get_value(future):
     return future[0]
@@ -41,6 +44,8 @@ def printState(s):
 
 def compare(a, b):
     return (a > b) - (a < b)
+
+
 class AlphaBetaPlayer(Player):
 
     def __init__(self, me, you, fprune=0.1, margin=0.0):
@@ -70,7 +75,7 @@ class AlphaBetaPlayer(Player):
         self.timeLimit = time.time()
 
     def move(self, state):
-        moves = self.get_valid_moves(state[0], state[1])
+        moves = self.get_valid_moves(state)
         self.time_limit = time.time() + self.seconds_cutoff
 
         if self.round < 4:
