@@ -1,0 +1,107 @@
+import time
+import socket
+import sys
+from board import Board
+
+INF = 1.0e100
+CORNERS = [(0, 0), (0, 7), (7, 0), (7, 7)]
+CENTERS = [(3, 3), (3, 4), (4, 3), (4, 4)]
+DANGERS = [(0, 1), (0, 6), (1, 0), (1, 1), (1, 6), (1, 7), (6, 0), (6, 1),
+           (6, 6), (6, 7), (7, 1), (7, 6)]
+
+G_EDGES = [(0, 2), (0, 3), (0, 4), (0, 5), (2, 0), (3, 0), (4, 0), (5, 0),
+           (2, 7), (3, 7), (4, 7), (5, 7), (7, 2), (7, 3), (7, 4), (7, 5)]
+
+NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
+             (1, 1)]
+
+class Player(object):
+    def __init__(self, me, you):
+        self.me, self.you = me, you
+
+        # handling the board
+        self.board = Board()
+        self.centers_bits = sum(self.board.spaces[i] for i in CENTERS)
+        self.corners_bits = sum(self.board.spaces[i] for i in CORNERS)
+        self.mine = 0
+        self.foe = 0
+
+    def get_valid_moves(self, s, player):
+
+        if self.round < 4:
+            centers_remaning_bits = self.centers_bits - s[0] - s[1]
+            return self.board.bits_to_tuples(centers_remaning_bits)
+
+        if player == self.me:
+            return self.board.legal_actions(s[0], s[1])
+        else:
+            return self.board.legal_actions(s[1], s[0])
+
+    def play_game(self, thehost):
+        def init_client(thehost):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_address = (thehost, 3333 + self.me)
+            print((sys.stderr, 'starting up on %s port ', server_address))
+            sock.connect(server_address)
+
+            for ind, thing in enumerate(sock.recv(1024).decode().split("\n")):
+                print("when init got {} and {}".format(ind, thing))
+
+            return sock
+
+        def read_message(sock):
+            message = sock.recv(1024).decode().split("\n")
+            turn = int(message[0])
+            if (turn == -999):
+                time.sleep(1)
+                sys.exit()
+            self.round = int(message[1])
+            self.t1 = float(message[2])
+            self.t2 = float(message[3])
+            print("turn", turn)
+            print("current time:", time.time())
+            print("round:", self.round)
+            print("t1:", self.t1)
+            print("t2:", self.t2)
+            count = 4
+            self.mine = 0
+            self.foe = 0
+            for i in range(8):
+                for j in range(8):
+                    color = int(message[count])
+                    if color == self.me:
+                        self.mine += self.board.spaces[(i, j)]
+                    elif color == self.you:
+                        self.foe += self.board.spaces[(i, j)]
+                    count += 1
+
+            # update board
+            self.board = Board(self.mine, self.foe)
+
+            return turn
+
+        # create a random number generator
+        sock = init_client(thehost)
+        while True:
+            turn = read_message(sock)
+            if turn == self.me:
+                my_move = self.move(((self.mine, self.foe), turn))
+                print("============")
+                print("Round: ", self.round)
+                # print("Valid moves: ", valid_moves)
+                print("mine: ", self.mine)
+                print("FOE: ", self.foe)
+                print(self.board)
+                # my_move = self.move(valid_moves)
+
+                if my_move == CORNERS[0]:
+                    G_EDGES.extend([(1, 0), (0, 1)])
+                elif my_move == CORNERS[1]:
+                    G_EDGES.extend([(1, 7), (0, 6)])
+                elif my_move == CORNERS[2]:
+                    G_EDGES.extend([(6, 0), (7, 1)])
+                elif my_move == CORNERS[3]:
+                    G_EDGES.extend([(6, 7), (7, 6)])
+
+                msg = "{}\n{}\n".format(my_move[0], my_move[1])
+                sock.send(msg.encode())
