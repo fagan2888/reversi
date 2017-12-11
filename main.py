@@ -24,7 +24,7 @@ G_EDGES = [(0, 2), (0, 3), (0, 4), (0, 5), (2, 0), (3, 0), (4, 0), (5, 0),
 NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
              (1, 1)]
 
-ai_types = {"random": RandomPlayer, "MCTS":  MCTSPlayer, "alphabeta": AlphaBetaPlayer}
+# ai_types = {"random": RandomPlayer, "MCTS":  MCTSPlayer, "alphabeta": AlphaBetaPlayer}
 
 if sys.version_info.major == 2:
     range = xrange
@@ -94,7 +94,13 @@ if __name__ == "__main__":
 
         import cProfile
         arg = sys.argv[1]
-        player = ai_types[ai](me, you)
+        if ai == "random":
+            player = RandomPlayer(me, you)
+        elif ai == "alphabeta":
+            player = AlphaBetaPlayer(me, you)
+        elif ai =="MCTS":
+            player = MCTSPlayer(me, you)
         # player = RandomPlayer(me, you)
         # player.play_game(arg)
+
         cProfile.run('player.play_game("{}")'.format(arg))
