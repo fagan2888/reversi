@@ -39,8 +39,11 @@ def start_player1(ai_type):
     if ai_type == "qualifier":
         # Qualifier. Need to pass in 1 after process starts
         p1_process = subprocess.Popen(command, stdin=subprocess.PIPE, encoding="utf8")
-        time.sleep(5)
-        p1_process.communicate(input="1\n")
+        time.sleep(1)
+        try:
+            p1_process.communicate(input="1\n", timeout=1)
+        except:
+            print("done waiting")
     else:
         subprocess.Popen(command)
         time.sleep(2)
@@ -53,8 +56,11 @@ def start_player2(ai_type):
     if ai_type == "qualifier":
         # Qualifier. Need to pass in 1 after process starts
         p2_process = subprocess.Popen(command, stdin=subprocess.PIPE, encoding="utf8")
-        time.sleep(5)
-        p2_process.communicate(input="1\n")
+        time.sleep(1)
+        try:
+            p2_process.communicate(input="1\n", timeout=1)
+        except:
+            print("done waiting")
     else:
         subprocess.Popen(command)
         time.sleep(2)
