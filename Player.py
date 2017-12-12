@@ -107,6 +107,7 @@ class Player(object):
                 print("FOE: ", self.foe)
                 print(self.board)
                 # my_move = self.move(valid_moves)
+                print("My move: ", my_move)
 
                 msg = "{}\n{}\n".format(my_move[0], my_move[1])
                 sock.send(msg.encode())

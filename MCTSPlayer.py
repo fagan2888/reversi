@@ -30,42 +30,52 @@ else:
         return x.keys()
 
 
-class MCTSNode(object):
-    board = Board()
+def first(x):
+    return x[0]
 
-    def __init__(self, parent, c=1.4):
-        """
-        Construct a node in a Markov Chain Tree Search tree.
 
-        Parameters
-        ----------
-        parent: MCTSNode or NoneType
-            The parent node in the tree. Used to do backpropogation of game
-            outcomes
-
-        c: float
-            A hyperparameter used in trianing... TODO fill in once we use it
-        """
-        self.parent = parent
-        self.children = {}  # dict mapping action => MCTSNode
-        self.n_visits = 0
-        self.value = 0
+class MCTSTree(object):
+    def __init__(self, c=1.4):
+        self.nodes = {(0, 0, 1): MCTSNode2()}
+        self.board = Board()
+        self.expand((0, 0, 1))
         self.c = c
 
-    def expand(self, actions):
-        """
-        Expand the search tree to include all ``actions`` as children
+    def expand(self, state):
+        if state[2] == 1:
+            actions = self.board.legal_actions(state[0], state[1])
+        else:
+            actions = self.board.legal_actions(state[1], state[0])
 
-        Parameters
-        ----------
-        actions:
-            The list of actions that should be added as nodes in the tree
-        """
+        print("actions: ", actions)
         for action in actions:
-            if action not in self.children:
-                self.children[action] = MCTSNode(self)
+            # Generate new state for action
+            action_bits = self.board.spaces[action]
+            if state[2] == 1:
+                new_positions = self.board.next_state_bits(
+                    action_bits, state[0], state[1]
+                )
+                new_state = (new_positions[0], new_positions[1], 2)
+            else:
+                new_positions = self.board.next_state_bits(
+                    action_bits, state[1], state[0]
+                )
 
-    def select(self):
+                # NOTE: this assumes that the state is always (p1, p2, turn)
+                # -- hence using `new_positions[1]` as first element here
+                new_state = (new_positions[1], new_positions[0], 1)
+
+            # if state already exists, don't create new one
+            # else create new state, and add to dict of nodes
+            if new_state in self.nodes:
+                continue
+
+            self.nodes[new_state] = MCTSNode2()
+
+            # add (action, new_state) to current_node.children
+            self.nodes[state].children.append((action, new_state))
+
+    def select(self, state):
         """
         Select an action from self.children
 
@@ -79,26 +89,59 @@ class MCTSNode(object):
         action
             The selected action
         """
-        # TODO: implement UTC or some more intelligent algo that encourages
-        #       exploration
-        if any(child.n_visits == 0 for child in itervalues(self.children)):
-            action = random.choice(list(iterkeys(self.children)))
-            node = self.children[action]
-            return action, node
+        print("Selecting...")
+        node = self.nodes[state]
 
-        # use UCB1
-        ln_n_term = self.c * math.sqrt(2 * math.log(
-            sum(child.n_visits for child in itervalues(self.children))
-        ))
-        val, action = max(
-            (
-                child.raw_value + ln_n_term / math.sqrt(child.n_visits or 1),
-                action
-            )
-            for action, child in iteritems(self.children)
+        if any(self.nodes[child_state].n_visits == 0 for (a, child_state) in node.children):
+            action, c_s = random.choice(node.children)
+            return action, self.nodes[c_s]
+
+        # sum of child visits _must_ be the same as this node's visits
+        term = self.c * math.sqrt(2*math.log(node.n_visits))
+
+        value, action, child_state = max(
+            (((self.nodes[c_s].win_percent + term / math.sqrt(self.nodes[c_s].n_visits or 1)), action, c_s)
+            for (action, c_s) in node.children),
+            key=first
         )
 
-        return action, self.children[action]
+        return action, child_state
+
+    def backprop(self, payoffs, history):
+        """
+        Apply backprop operation given payoffs for each player (``payoffs``)
+        and a history of states.
+
+        Parameters
+        ----------
+        payoffs: iterable, len(2)
+            The payoff for each player. This must be a length 2 iterable
+
+        history: list(state)
+            A list of states recording a history of the game
+
+        """
+        # [::-1] to traverse in reverse
+        for state in history[::-1]:
+            self.nodes[state]._update(payoffs[state[2]])
+
+
+class MCTSNode2(object):
+    # define slots to make object creation more efficent
+    __slots__ = ["value", "n_visits", "children"]
+
+    def __init__(self):
+        self.value = 0
+        self.n_visits = 0
+        self.children = []
+
+    @property
+    def is_leaf(self):
+        return len(self.children) == 0
+
+    @property
+    def win_percent(self):
+        return self.value / (self.n_visits or 1)
 
     def _update(self, z):
         """
@@ -114,31 +157,6 @@ class MCTSNode(object):
         # NOTE: only counting wins (positive z)!
         if z > 0:
             self.value += 1
-        pass
-
-    def backprop(self, z):
-        """
-        Apply the backpropogation operator all the way up the tree.
-
-        Recursively calls `_update` on all parent nodes and then calls
-        `_update` on this node itself.
-        """
-        if self.parent:
-            # propogate all the way back up the tree
-            self.parent.backprop(z)
-        self._update(z)
-
-    @property
-    def is_leaf(self):
-        return len(self.children) == 0
-
-    @property
-    def is_root(self):
-        return self.parent is None
-
-    @property
-    def raw_value(self):
-        return self.value / (self.n_visits or 1)
 
 
 class MCTSPlayer(Player):
@@ -158,27 +176,26 @@ class MCTSPlayer(Player):
             calculation of each move can take
         """
         super(MCTSPlayer, self).__init__(me, you)
-        # maps from (me_placed, foe_placed, turn) => MCTSNode
-        self._current_node = MCTSNode(None)
-
+        self.board = Board()
         # Load existing nodes
-
-        self.nodes = {(0, 0, 1): self._current_node}
+        self.tree = MCTSTree()
         self.move_time_limit = move_time_limit
+
 
     def move(self, state):
         print("Moving with state: {}".format(state))
-        # update current node
-        if state in self.nodes:
-            self._current_node = self.nodes[state]
+
+        if state not in self.tree.nodes:
+            node = MCTSNode2()
+            self.tree.nodes[state] = node
+            self.tree.expand(state)
         else:
-            new_node = MCTSNode(self._current_node)
-            self._current_node = new_node
-            self.nodes[state] = new_node
+            node = self.tree.nodes[state]
 
         if self.round < 4:
-            moves = self.get_valid_moves((state[0], state[1]), state[2])
-            return random.choice(moves)
+            # node won't have children yet, so we need to expand.
+            self.tree.expand(state)
+            return random.choice(node.children)
 
         # simulate as many times as we can from this node to the end of the
         # game. This function will be responsible for backprop
@@ -190,58 +207,39 @@ class MCTSPlayer(Player):
 
         # print("\n\n\nJust did {} simulations in {} seconds\n\n\n".format(nsims, self.move_time_limit))
 
-        return self._current_node.select()[0]
+        action, s = self.tree.select(state)
+        print("selected action: ", action)
+        return action
 
     def run_simulation(self, state, disp=False):
-        # Set up the board with the current state
         # print("Starting simulation with state {}".format(state))
-        sim_board = Board(state[0], state[1], state[2])
-        node = self._current_node
         new_state = state
+        history = [state]
 
         # print("in the simulation with initial board:")
         # print(sim_board)
 
         while True:
-            if sim_board.is_over():
+            node = self.tree.nodes[new_state]
+            if self.board.is_over(new_state[1], new_state[2]):
                 break
 
             if node.is_leaf:
-                # we don't have info for this node yet, need to expand. select
-                valid_moves = sim_board.get_moves()
-                if len(valid_moves) == 0:
-                    # this player can't move, but game isn't over. Tell the
-                    # board to have the player pass
-                    sim_board.player_passes()
-                    continue
-                node.expand(valid_moves)
-                action = random.choice(valid_moves)
+                # we don't have info for this node yet, need to expand
+                self.tree.expand(state)
+                action, new_state = random.choice(node.children)
             else:
-                action, node = node.select()
+                action, new_state = self.tree.select(state) # -> (action, child_state)
 
-            new_state = sim_board.do_action(sim_board.spaces[action])
+            history.append(new_state)
 
             if disp:
                 print(new_state)
                 print(sim_board)
 
-        # print("finished simulation???")
-
-        # TODO: because I did self play I should also backprop up the second
-        #       player's tree.
         score1 = sim_board.score(new_state[0])
         score2 = sim_board.score(new_state[1])
-        if score1 > score2:
-            z1 = 1
-        elif score1 == score2:
-            z1 = 0
-        else:
-            z1 = -1
-
-        if state[2] == 1:
-            node.backprop(z1)
-        else:
-            node.backprop(-z1)
+        self.tree.backprop((score1, score2), history)
 
     def load_tree(self):
         my_file = Path("tree.pkl")
@@ -249,13 +247,13 @@ class MCTSPlayer(Player):
             print("Loading tree...")
             with open("tree.pkl", "rb") as f:
                 data = pickle.load(f)
-            self.nodes = data["tree"]
+            self.tree = data["tree"]
         else:
-            self.nodes = {(0, 0, 1): self._current_node}
+            self.tree = MCTSTree()
         print("Loaded tree")
 
     def save_tree(self):
         print("Saving tree...")
-        output = {"tree": self.nodes}
+        output = {"tree": self.tree}
         with open("tree.pkl", "wb") as f:
             pickle.dump(output, f)

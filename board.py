@@ -17,17 +17,18 @@ class Board(object):
 
         self.mask_a = 0xfefefefefefefefe
         self.mask_h = 0x7f7f7f7f7f7f7f7f
+        self.centers_bits = sum(
+            SPACES[i] for i in [(3, 4), (4, 3), (4, 4), (3, 3)]
+        )
 
         # the state
         self.p1_placed = p1_placed
         self.p2_placed = p2_placed
-        self.round = 0
         self.player_turn = player_turn
 
     def init(self):
         self.p1_placed = SPACES[(3, 4)] + SPACES[(4, 3)]
         self.p2_placed = SPACES[(4, 4)] + SPACES[(3, 3)]
-        self.round = 5
         self.player_turn = 1
 
     def __getitem__(self, index):
@@ -98,12 +99,15 @@ class Board(object):
         return gN, gS, gE, gW, gNE, gNW, gSE, gSW
 
     def legal_actions_bits(self, mine, opp):
-        legal = 0
         occupied = mine | opp
+        if (self.centers_bits & occupied) != self.centers_bits:
+            return self.centers_bits - occupied
+
         empty = 0xffffffffffffffff ^ occupied
 
         gN, gS, gE, gW, gNE, gNW, gSE, gSW = self._get_g_directions(mine, opp)
 
+        legal = 0
         legal |= ((gN & ~mine) >> 8) & empty
         legal |= ((gS & ~mine) << 8) & empty
         legal |= ((gE & ~mine & self.mask_h) << 1) & empty
@@ -215,7 +219,6 @@ class Board(object):
             return self.legal_actions(self.p2_placed, self.p1_placed)
 
     def do_action(self, action):
-        self.round += 1
         if self.player_turn == 1:
             self.p1_placed, self.p2_placed = self.next_state_bits(
                 action, self.p1_placed, self.p2_placed
