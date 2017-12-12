@@ -99,10 +99,10 @@ if __name__ == "__main__":
     for round in range(rounds):
         # alternate who goes first
         print("Game ", round, "/", rounds)
-        # if round % 2:
-        #     run_game(ais[player2AI], ais[player1AI])
-        # else:
-        #     run_game(ais[player1AI], ais[player2AI])
-        run_game(ais[player1AI], ais[player2AI])
+        if round % 2:
+            run_game(ais[player2AI], ais[player1AI])
+        else:
+            run_game(ais[player1AI], ais[player2AI])
+        # run_game(ais[player1AI], ais[player2AI])
 
     print("Done running all games!")

@@ -90,6 +90,12 @@ class Player(object):
 
         # create a random number generator
         sock = init_client(hostname)
+
+        #TODO load the tree here
+        try:
+            self.load_tree()
+        except:
+            print("Load tree not a method")
         while True:
             turn = read_message(sock)
             if turn == self.me:

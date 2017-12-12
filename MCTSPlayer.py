@@ -162,14 +162,8 @@ class MCTSPlayer(Player):
         self._current_node = MCTSNode(None)
 
         # Load existing nodes
-        my_file = Path("tree.pkl")
-        if my_file.exists():
-            print("Loading tree...")
-            with open("tree.pkl", "rb") as f:
-                data = pickle.load(f)
-            self.nodes = data["tree"]
-        else:
-            self.nodes = {(0, 0, 1): self._current_node}
+
+        self.nodes = {(0, 0, 1): self._current_node}
         self.move_time_limit = move_time_limit
 
     def move(self, state):
@@ -248,6 +242,17 @@ class MCTSPlayer(Player):
             node.backprop(z1)
         else:
             node.backprop(-z1)
+
+    def load_tree(self):
+        my_file = Path("tree.pkl")
+        if my_file.exists():
+            print("Loading tree...")
+            with open("tree.pkl", "rb") as f:
+                data = pickle.load(f)
+            self.nodes = data["tree"]
+        else:
+            self.nodes = {(0, 0, 1): self._current_node}
+        print("Loaded tree")
 
     def save_tree(self):
         print("Saving tree...")
