@@ -19,9 +19,11 @@ commands_for_ai = {
 def run_game(player1AI, player2AI):
     print("Startin game with player1 =", player1AI, "and player2 =", player2AI)
     process = start_server()
-    start_player1(player1AI)
-    start_player2(player2AI)
+    p1 = start_player1(player1AI)
+    p2 = start_player2(player2AI)
     process.wait()
+    p1.wait()
+    p2.wait()
 
     # wait for game to end
 def start_server():
@@ -40,7 +42,6 @@ def start_player1(ai_type):
     command = list(commands_for_ai[ai_type])
     command.append("1")
     print("Command: ", command)
-
     if ai_type == "qualifier":
         # Qualifier. Need to pass in 1 after process starts
         p1_process = subprocess.Popen(command, stdin=subprocess.PIPE, encoding="utf8")
@@ -50,14 +51,17 @@ def start_player1(ai_type):
         except:
             print("done waiting")
     else:
-        subprocess.Popen(command)
+        p1_process = subprocess.Popen(command)
         time.sleep(2)
+
+    return p1_process
 
 def start_player2(ai_type):
     print("\nStarting player 2")
     os.chdir(ROOT_DIR)
     command = list(commands_for_ai[ai_type])
     command.append("2")
+    print("Command: ", command)
     if ai_type == "qualifier":
         # Qualifier. Need to pass in 1 after process starts
         p2_process = subprocess.Popen(command, stdin=subprocess.PIPE, encoding="utf8")
@@ -67,8 +71,10 @@ def start_player2(ai_type):
         except:
             print("done waiting")
     else:
-        subprocess.Popen(command)
+        p2_process = subprocess.Popen(command)
         time.sleep(2)
+
+    return p2_process
 
 if __name__ == "__main__":
     # Get number of rounds from input
@@ -93,9 +99,10 @@ if __name__ == "__main__":
     for round in range(rounds):
         # alternate who goes first
         print("Game ", round, "/", rounds)
-        if round % 2:
-            run_game(ais[player2AI], ais[player1AI])
-        else:
-            run_game(ais[player1AI], ais[player2AI])
+        # if round % 2:
+        #     run_game(ais[player2AI], ais[player1AI])
+        # else:
+        #     run_game(ais[player1AI], ais[player2AI])
+        run_game(ais[player1AI], ais[player2AI])
 
     print("Done running all games!")

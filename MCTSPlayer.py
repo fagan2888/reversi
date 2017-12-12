@@ -5,6 +5,8 @@ import math
 from board import Board
 from Player import Player
 import pickle
+from pathlib import Path
+
 
 if sys.version_info.major == 2:
     range = xrange
@@ -158,7 +160,16 @@ class MCTSPlayer(Player):
         super(MCTSPlayer, self).__init__(me, you)
         # maps from (me_placed, foe_placed, turn) => MCTSNode
         self._current_node = MCTSNode(None)
-        self.nodes = {(0, 0, 1): self._current_node}
+
+        # Load existing nodes
+        my_file = Path("tree.pkl")
+        if my_file.exists():
+            print("Loading tree...")
+            with open("tree.pkl", "rb") as f:
+                data = pickle.load(f)
+            self.nodes = data["tree"]
+        else:
+            self.nodes = {(0, 0, 1): self._current_node}
         self.move_time_limit = move_time_limit
 
     def move(self, state):
@@ -180,23 +191,22 @@ class MCTSPlayer(Player):
         end_time = time.time() + self.move_time_limit
         nsims = 0
         while time.time() < end_time:
-            print("Running a simulation")
             nsims += 1
             self.run_simulation(state)
 
-        print("\n\n\nJust did {} simulations in {} seconds\n\n\n".format(nsims, self.move_time_limit))
+        # print("\n\n\nJust did {} simulations in {} seconds\n\n\n".format(nsims, self.move_time_limit))
 
         return self._current_node.select()[0]
 
     def run_simulation(self, state, disp=False):
         # Set up the board with the current state
-        print("Starting simulation with state {}".format(state))
+        # print("Starting simulation with state {}".format(state))
         sim_board = Board(state[0], state[1], state[2])
         node = self._current_node
         new_state = state
 
-        print("in the simulation with initial board:")
-        print(sim_board)
+        # print("in the simulation with initial board:")
+        # print(sim_board)
 
         while True:
             if sim_board.is_over():
@@ -221,7 +231,7 @@ class MCTSPlayer(Player):
                 print(new_state)
                 print(sim_board)
 
-        print("finished simulation???")
+        # print("finished simulation???")
 
         # TODO: because I did self play I should also backprop up the second
         #       player's tree.
@@ -239,7 +249,8 @@ class MCTSPlayer(Player):
         else:
             node.backprop(-z1)
 
-    def save_stuff(self):
+    def save_tree(self):
+        print("Saving tree...")
         output = {"tree": self.nodes}
         with open("tree.pkl", "wb") as f:
             pickle.dump(output, f)

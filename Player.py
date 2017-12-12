@@ -61,7 +61,7 @@ class Player(object):
             turn = int(message[0])
             if (turn == -999):
                 time.sleep(1)
-                self.save_stuff()
+                self.save_tree()
                 sys.exit()
             self.round = int(message[1])
             self.t1 = float(message[2])
@@ -102,15 +102,6 @@ class Player(object):
                 print(self.board)
                 # my_move = self.move(valid_moves)
 
-                if my_move == CORNERS[0]:
-                    G_EDGES.extend([(1, 0), (0, 1)])
-                elif my_move == CORNERS[1]:
-                    G_EDGES.extend([(1, 7), (0, 6)])
-                elif my_move == CORNERS[2]:
-                    G_EDGES.extend([(6, 0), (7, 1)])
-                elif my_move == CORNERS[3]:
-                    G_EDGES.extend([(6, 7), (7, 6)])
-
                 msg = "{}\n{}\n".format(my_move[0], my_move[1])
                 sock.send(msg.encode())
 
@@ -125,7 +116,3 @@ class Player(object):
             return self.mine, self.foe, turn
         else:
             return self.foe, self.mine, turn
-
-    def save_stuff(self):
-        print("I'm saving stuff now")
-        pass
