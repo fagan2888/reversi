@@ -45,6 +45,8 @@ class Player(object):
             return self.board.legal_actions(state[1], state[0])
 
     def play_game(self, hostname):
+        self.load_tree()
+
         def init_client(hostname):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_address = (hostname, 3333 + self.me)
@@ -84,29 +86,26 @@ class Player(object):
                     count += 1
 
             # update board
-            self.board = Board(self.mine, self.foe)
+            if self.me == 1:
+                self.board = Board(self.mine, self.foe)
+            else:
+                self.board = Board(self.foe, self.mine)
 
             return turn
 
         # create a random number generator
         sock = init_client(hostname)
 
-        #TODO load the tree here
-        try:
-            self.load_tree()
-        except:
-            print("Load tree not a method")
         while True:
             turn = read_message(sock)
             if turn == self.me:
-                my_move = self.move(self.pack_state(turn))
                 print("============")
                 print("Round: ", self.round)
                 # print("Valid moves: ", valid_moves)
                 print("mine: ", self.mine)
                 print("FOE: ", self.foe)
                 print(self.board)
-                # my_move = self.move(valid_moves)
+                my_move = self.move(self.pack_state(turn))
                 print("My move: ", my_move)
 
                 msg = "{}\n{}\n".format(my_move[0], my_move[1])
@@ -123,3 +122,9 @@ class Player(object):
             return self.mine, self.foe, turn
         else:
             return self.foe, self.mine, turn
+
+    def save_tree(self):
+        pass
+
+    def load_tree(self):
+        pass

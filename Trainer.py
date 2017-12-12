@@ -50,9 +50,11 @@ def start_player1(ai_type):
             p1_process.communicate(input="1\n", timeout=1)
         except:
             print("done waiting")
+    elif ai_type == "MCTS":
+        p1_process = subprocess.Popen(command)
+        time.sleep(5)
     else:
         p1_process = subprocess.Popen(command)
-        time.sleep(2)
 
     return p1_process
 
@@ -70,9 +72,11 @@ def start_player2(ai_type):
             p2_process.communicate(input="1\n", timeout=1)
         except:
             print("done waiting")
+    elif ai_type == "MCTS":
+        p2_process = subprocess.Popen(command)
+        time.sleep(5)
     else:
         p2_process = subprocess.Popen(command)
-        time.sleep(2)
 
     return p2_process
 

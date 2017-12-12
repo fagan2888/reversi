@@ -11,24 +11,6 @@ import pickle
 if sys.version_info.major == 2:
     range = xrange
 
-    def iteritems(x):
-        return x.iteritems()
-
-    def itervalues(x):
-        return x.itervalues()
-
-    def iterkeys(x):
-        return x.iterkeys()
-else:
-    def iteritems(x):
-        return x.items()
-
-    def itervalues(x):
-        return x.values()
-
-    def iterkeys(x):
-        return x.keys()
-
 
 def first(x):
     return x[0]
@@ -64,9 +46,9 @@ class MCTSTree(object):
                 # -- hence using `new_positions[1]` as first element here
                 new_state = (new_positions[1], new_positions[0], 1)
 
-            # if state already exists, don't create new one
-            # else create new state, and add to dict of nodes
             if new_state in self.nodes:
+                if (action, new_state) not in self.nodes[state].children:
+                    self.nodes[state].children.append((action, new_state))
                 continue
 
             self.nodes[new_state] = MCTSNode2()
@@ -160,7 +142,7 @@ class MCTSNode2(object):
 
 
 class MCTSPlayer(Player):
-    def __init__(self, me, you, move_time_limit=1):
+    def __init__(self, me, you, move_time_limit=1, max_rollouts=100000):
         """
         Create an AI player that uses Monte Carlo Tree Search (MCTS) to
         select moves.
@@ -180,6 +162,7 @@ class MCTSPlayer(Player):
         # Load existing nodes
         self.tree = MCTSTree()
         self.move_time_limit = move_time_limit
+        self.max_rollouts = max_rollouts
 
 
     def move(self, state):
@@ -192,18 +175,23 @@ class MCTSPlayer(Player):
 
         if self.round < 4:
             # node won't have children yet, so we need to expand.
+            print("Expanding before round 4 with state:", state)
             self.tree.expand(state)
+            if len(node.children) == 0:
+                print("Houston, we have a problem")
             return random.choice(node.children)[0]
 
         # simulate as many times as we can from this node to the end of the
         # game. This function will be responsible for backprop
-        end_time = time.time() + self.move_time_limit
+        start_time = time.time()
+        end_time = start_time + self.move_time_limit
         nsims = 0
-        while time.time() < end_time:
+        while time.time() < end_time and nsims < self.max_rollouts:
             nsims += 1
             self.run_simulation(state)
 
-        # print("\n\n\nJust did {} simulations in {} seconds\n\n\n".format(nsims, self.move_time_limit))
+        msg = "\n\n\nJust did {} simulations in {} seconds\n\n\n"
+        print(msg.format(nsims, time.time() - start_time))
 
         action, s = self.tree.select(state)
         return action
@@ -251,7 +239,7 @@ class MCTSPlayer(Player):
             self.tree = data["tree"]
         else:
             self.tree = MCTSTree()
-        print("Loaded tree")
+        print("Loaded tree with {} elements".format(len(self.tree.nodes)))
 
     def save_tree(self):
         print("Saving tree...")

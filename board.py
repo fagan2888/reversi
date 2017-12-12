@@ -148,29 +148,6 @@ class Board(object):
 
         return new_mover, new_opponent
 
-    # def _move_one_direction(self, mine, mask, n):
-    #     flipL = mask & (mine << n)
-    #     flipL |= mask & (flipL << n)
-    #     maskL = mask & (mask << n)
-    #     flipL |= maskL & (flipL << (2 * n))
-    #     flipL |= maskL & (flipL << (2 * n))
-    #     flipR = mask & (mine >> n)
-    #     flipR |= mask & (flipR >> n)
-    #     maskR = mask & (mask >> n)
-    #     flipR |= maskR & (flipR >> (2 * n))
-    #     flipR |= maskR & (flipR >> (2 * n))
-    #     return (flipL << n) | (flipR >> n)
-    #
-    # def legal_actions_bits(self, mine, opp):
-    #     # https://github.com/lk16/dots/blob/master/board/board.go
-    #     mask = opp & 0x7E7E7E7E7E7E7E7E
-    #     moves = self._move_one_direction(mine, mask, 1)
-    #     moves |= self._move_one_direction(mine, mask, 7)
-    #     moves |= self._move_one_direction(mine, mask, 9)
-    #     moves |= self._move_one_direction(mine, opp, 8)
-    #     moves = moves & (~(mine | opp))
-    #     return moves
-
     def score(self, positions):
         return bin(positions).count("1")
 
