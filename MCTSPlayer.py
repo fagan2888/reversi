@@ -67,7 +67,6 @@ class MCTSTree(object):
             # if state already exists, don't create new one
             # else create new state, and add to dict of nodes
             if new_state in self.nodes:
-                print("new state", new_state, "already in self.nodes")
                 continue
 
             self.nodes[new_state] = MCTSNode2()
@@ -89,15 +88,16 @@ class MCTSTree(object):
         action
             The selected action
         """
-        print("Selecting...")
         node = self.nodes[state]
 
         if any(self.nodes[child_state].n_visits == 0 for (a, child_state) in node.children):
             action, c_s = random.choice(node.children)
             return action, c_s
 
-        # sum of child visits _must_ be the same as this node's visits
-        term = self.c * math.sqrt(2*math.log(node.n_visits))
+        total_visits = sum(
+            self.nodes[c_s].n_visits for (a, c_s) in node.children
+        )
+        term = self.c * math.sqrt(2*math.log(total_visits or 1))
 
         value, action, child_state = max(
             (((self.nodes[c_s].win_percent + term / math.sqrt(self.nodes[c_s].n_visits or 1)), action, c_s)
@@ -105,7 +105,6 @@ class MCTSTree(object):
             key=first
         )
 
-        print("returning: ", action, child_state)
         return action, child_state
 
     def backprop(self, payoffs, history):
@@ -184,8 +183,6 @@ class MCTSPlayer(Player):
 
 
     def move(self, state):
-        print("Moving with state: {}".format(state))
-
         if state not in self.tree.nodes:
             node = MCTSNode2()
             self.tree.nodes[state] = node
@@ -209,23 +206,23 @@ class MCTSPlayer(Player):
         # print("\n\n\nJust did {} simulations in {} seconds\n\n\n".format(nsims, self.move_time_limit))
 
         action, s = self.tree.select(state)
-        print("selected action: ", action)
         return action
 
-    def run_simulation(self, state, disp=True):
+    def run_simulation(self, state, disp=False):
         # print("Starting simulation with state {}".format(state))
-        print("State at start: ", state)
         history = [state]
 
-        while True:
+        while not self.board.is_over():
+            self.board.set_state(state)
+            if disp:
+                print(state)
+                print(Board(state[0], state[1]))
+
             if state not in self.tree.nodes:
                 # could get here if a player has to pass
                 self.tree.nodes[state] = MCTSNode2()
 
             node = self.tree.nodes[state]
-
-            if self.board.is_over(state[0], state[1]):
-                break
 
             if node.is_leaf:
                 # we don't have info for this node yet, need to expand
@@ -241,13 +238,8 @@ class MCTSPlayer(Player):
 
             history.append(state)
 
-            if disp:
-                print(state)
-                print(Board(state[0], state[1]))
-
         score1 = self.board.score(state[0])
         score2 = self.board.score(state[1])
-        print("about to backprop with history: ", history)
         self.tree.backprop((score1, score2), history)
 
     def load_tree(self):

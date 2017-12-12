@@ -236,3 +236,6 @@ class Board(object):
     def player_passes(self):
         self.player_turn = (self.player_turn == 1) + 1
         return self.p1_placed, self.p2_placed, self.player_turn
+
+    def set_state(self, state):
+        self.p1_placed, self.p2_placed, self.player_turn = state
