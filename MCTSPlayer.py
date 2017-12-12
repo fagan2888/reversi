@@ -94,7 +94,7 @@ class MCTSTree(object):
 
         if any(self.nodes[child_state].n_visits == 0 for (a, child_state) in node.children):
             action, c_s = random.choice(node.children)
-            return action, self.nodes[c_s]
+            return action, c_s
 
         # sum of child visits _must_ be the same as this node's visits
         term = self.c * math.sqrt(2*math.log(node.n_visits))
@@ -105,6 +105,7 @@ class MCTSTree(object):
             key=first
         )
 
+        print("returning: ", action, child_state)
         return action, child_state
 
     def backprop(self, payoffs, history):
@@ -195,7 +196,7 @@ class MCTSPlayer(Player):
         if self.round < 4:
             # node won't have children yet, so we need to expand.
             self.tree.expand(state)
-            return random.choice(node.children)
+            return random.choice(node.children)[0]
 
         # simulate as many times as we can from this node to the end of the
         # game. This function will be responsible for backprop
@@ -213,6 +214,7 @@ class MCTSPlayer(Player):
 
     def run_simulation(self, state, disp=False):
         # print("Starting simulation with state {}".format(state))
+        print("State at start: ", state)
         new_state = state
         history = [state]
 
@@ -220,6 +222,8 @@ class MCTSPlayer(Player):
         # print(sim_board)
 
         while True:
+            print("State: ", state)
+            print("New state:" , new_state)
             node = self.tree.nodes[new_state]
             if self.board.is_over(new_state[0], new_state[1]):
                 break
