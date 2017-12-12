@@ -124,7 +124,7 @@ class MCTSTree(object):
         """
         # [::-1] to traverse in reverse
         for state in history[::-1]:
-            self.nodes[state]._update(payoffs[state[2]])
+            self.nodes[state]._update(payoffs[state[2] - 1])
 
 
 class MCTSNode2(object):
@@ -212,37 +212,42 @@ class MCTSPlayer(Player):
         print("selected action: ", action)
         return action
 
-    def run_simulation(self, state, disp=False):
+    def run_simulation(self, state, disp=True):
         # print("Starting simulation with state {}".format(state))
         print("State at start: ", state)
-        new_state = state
         history = [state]
 
-        # print("in the simulation with initial board:")
-        # print(sim_board)
-
         while True:
-            print("State: ", state)
-            print("New state:" , new_state)
-            node = self.tree.nodes[new_state]
-            if self.board.is_over(new_state[0], new_state[1]):
+            if state not in self.tree.nodes:
+                # could get here if a player has to pass
+                self.tree.nodes[state] = MCTSNode2()
+
+            node = self.tree.nodes[state]
+
+            if self.board.is_over(state[0], state[1]):
                 break
 
             if node.is_leaf:
                 # we don't have info for this node yet, need to expand
                 self.tree.expand(state)
-                action, new_state = random.choice(node.children)
+                if len(node.children) == 0:
+                    # this player doesn't have any moves available to him
+                    # need to let the other player go...
+                    state = (state[0], state[1], (state[2] == 1) + 1)
+                    continue
+                action, state = random.choice(node.children)
             else:
-                action, new_state = self.tree.select(state) # -> (action, child_state)
+                action, state = self.tree.select(state) # -> (action, child_state)
 
-            history.append(new_state)
+            history.append(state)
 
             if disp:
-                print(new_state)
-                print(sim_board)
+                print(state)
+                print(Board(state[0], state[1]))
 
-        score1 = sim_board.score(new_state[0])
-        score2 = sim_board.score(new_state[1])
+        score1 = self.board.score(state[0])
+        score2 = self.board.score(state[1])
+        print("about to backprop with history: ", history)
         self.tree.backprop((score1, score2), history)
 
     def load_tree(self):
