@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import random
@@ -5,7 +6,6 @@ import math
 from board import Board
 from Player import Player
 import pickle
-from pathlib import Path
 
 
 if sys.version_info.major == 2:
@@ -47,7 +47,6 @@ class MCTSTree(object):
         else:
             actions = self.board.legal_actions(state[1], state[0])
 
-        print("actions: ", actions)
         for action in actions:
             # Generate new state for action
             action_bits = self.board.spaces[action]
@@ -68,6 +67,7 @@ class MCTSTree(object):
             # if state already exists, don't create new one
             # else create new state, and add to dict of nodes
             if new_state in self.nodes:
+                print("new state", new_state, "already in self.nodes")
                 continue
 
             self.nodes[new_state] = MCTSNode2()
@@ -221,7 +221,7 @@ class MCTSPlayer(Player):
 
         while True:
             node = self.tree.nodes[new_state]
-            if self.board.is_over(new_state[1], new_state[2]):
+            if self.board.is_over(new_state[0], new_state[1]):
                 break
 
             if node.is_leaf:
@@ -242,10 +242,10 @@ class MCTSPlayer(Player):
         self.tree.backprop((score1, score2), history)
 
     def load_tree(self):
-        my_file = Path("tree.pkl")
-        if my_file.exists():
+        my_file = "tree.pkl"
+        if os.path.exists(my_file):
             print("Loading tree...")
-            with open("tree.pkl", "rb") as f:
+            with open(my_file, "rb") as f:
                 data = pickle.load(f)
             self.tree = data["tree"]
         else:

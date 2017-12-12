@@ -124,6 +124,7 @@ class Board(object):
         gN, gS, gE, gW, gNE, gNW, gSE, gSW = self._get_g_directions(
             action, opponent
         )
+        mover += action
 
         if (gN >> 8) & mover > 0:
             flips |= gN
