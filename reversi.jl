@@ -375,12 +375,27 @@ select_action(p::AlphaBetaPruning, s::State) = alphabeta(p, s, p.depth, -Inf, In
 # ----------------- #
 # Tournament Server #
 # ----------------- #
+mutable struct TournamentPlayer{Tp<:Player}
+    player::Tp
+    me::Int
+    them::Int
+    sock::TCPSocket
+    time1::Float64
+    time2::Float64
+end
 
-function read_message(sock::TCPSocket)
+function TournamentPlayer(p::Player, me::Int)
+    TournamentPlayer(p, me, (me == 1) + 1, TCPSocket(), NaN, NaN)
+end
+
+function read_message(tp::TournamentPlayer)
+    sock = tp.sock
     turn = parse(Int, readline(sock))
     round = parse(Int, readline(sock))
-    t1 = parse(Float64, readline(sock))
-    t2 = parse(Float64, readline(sock))
+    tp.time1 = parse(Float64, readline(sock))
+    tp.time2 = parse(Float64, readline(sock))
+
+    # read state from server
     p1_placed = UInt64(0)
     p2_placed = UInt64(0)
     for i in 1:8, j in 1:8
@@ -391,20 +406,15 @@ function read_message(sock::TCPSocket)
             p2_placed += encode(9-i, j)
         end
     end
+    # terminate message
     readline(sock)
+
+    # return state
     State(p1_placed, p2_placed, turn, round)
 end
 
-play_move(sock::TCPSocket, rc::Tuple{Int, Int}) = play_move(sock, rc[1], rc[2])
-play_move(sock::TCPSocket, row, col) = write(sock, string(8-row, '\n', col-1, '\n'))
-
-struct TournamentPlayer{Tp<:Player}
-    player::Tp
-    me::Int
-    them::Int
-end
-
-TournamentPlayer(p::Player, me::Int) = TournamentPlayer(p, me, (me == 1) + 1)
+play_move(tp::TournamentPlayer, rc::Tuple{Int, Int}) = play_move(tp, rc[1], rc[2])
+play_move(tp::TournamentPlayer, row, col) = write(tp.sock, string(8-row, '\n', col-1, '\n'))
 
 function update_msg(tp::TournamentPlayer, s::State)
     @unpack me, them = tp
@@ -420,11 +430,11 @@ end
 
 function play_game(tp::TournamentPlayer)
     @unpack me, them = tp
-    sock = connect(3333 + me)
-    @show readline(sock)
+    tp.sock = connect(3333 + me)
+    @show readline(tp.sock)
 
     while true
-        s = read_message(sock)
+        s = read_message(tp)
         if s.player == -999
             final_score = score(s)
             if final_score[me] > final_score[them]
@@ -435,9 +445,10 @@ function play_game(tp::TournamentPlayer)
             println(msg, "by a score of ", final_score)
             break
         end
+        @show tp.time1, tp.time2
         if s.player == me
             update_msg(tp, s)
-            play_move(sock, select_action(tp.player, s))
+            play_move(tp, select_action(tp.player, s))
         end
     end
 end
@@ -461,6 +472,8 @@ TODO:
 - Do rollouts in parallel
 - Memoize?
 - Do training to optimize weights
+- Use my alpha-beta with low depth as rollout policy for MCTS in a deepmind
+  style algo
 =#
 
 end # module
