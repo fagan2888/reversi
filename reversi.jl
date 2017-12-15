@@ -191,7 +191,6 @@ function game_over(p1::UInt64, p2::UInt64)::Tuple{Bool,Int,Int}
     false, 0, 0
 end
 
-do_pass(s::State) = State(s.p1_placed, s.p2_placed, (s.player == 1) + 1, s.round+1)
 
 # --------------------------- #
 # bitboard api for State type #
@@ -228,6 +227,7 @@ function do_action(s::State, action::UInt64)::State
 end
 
 do_action(s::State, a::Tuple{Int,Int}) = do_action(s, encode(a))
+do_pass(s::State) = State(s.p1_placed, s.p2_placed, (s.player == 1) + 1, s.round+1)
 
 opponent(i::Integer) = (i == 1) + 1
 opponent(s::State) = opponent(state.player)
@@ -240,7 +240,9 @@ abstract type Player end
 "Using players `p1` and `p2`, simulate the game starting from state `s`"
 function play_game(p1::Player, p2::Player, s::State=State(); disp::Bool=true)
     players = (p1, p2)
+    history = State[]
     while !(game_over(s)[1])
+        push!(history, s)
         disp && show(s)
         actions_bits = legal_actions_bits(s)
         if actions_bits == 0
@@ -250,8 +252,9 @@ function play_game(p1::Player, p2::Player, s::State=State(); disp::Bool=true)
         action = select_action(players[s.player], s)
         s = do_action(s, action)
     end
-    score(s)
+    score(s), history
 end
+
 
 # ------- #
 # Players #
@@ -261,20 +264,18 @@ select_action(p::Player, s::State) = select_action(p, s, legal_actions(s))
 select_action(p::Player, s::State, g::Base.Generator) = select_action(p, s, collect(g))
 select_action(p::Player, s::State, a::UInt64) = select_action(p, s, bits_to_tuples(a))
 
+# ------------ #
+# RandomPlayer #
+# ------------ #
+
 struct RandomPlayer <: Player end
-function select_action(
-        p::RandomPlayer, s::State, actions::AbstractVector{Tuple{Int,Int}}
-    )
-    rand(actions)
-end
+select_action(p::RandomPlayer, s::State, actions::AbstractVector) = rand(actions)
 
 # ---------- #
 # Evaluators #
 # ---------- #
-
-function weighted_evaluator(s::State)
-    # TODO: optimize over these weights
-    weights = Float64[
+# TODO: optimize over these weights
+const weights = Float64[
         120 -20  20   5   5  20 -20 120
         -20 -40  -5  -5  -5  -5 -40 -20
          20  -5  15   3   3  15  -5  20
@@ -284,6 +285,7 @@ function weighted_evaluator(s::State)
         -20 -40  -5  -5  -5  -5 -40 -20
         120 -20  20   5   5  20 -20 120
     ]
+function weighted_evaluator(s::State)
     p1_score = 0.0
     for (r, c) in bits_to_tuples(s.p1_placed)
         p1_score += weights[r, c]
@@ -331,13 +333,54 @@ end
 select_action(p::Minimax, s::State) = minimax(p, s, p.depth)[2]
 
 # ------------------ #
-# Alpha beta pruning #
+# Stochastic Minimax #
 # ------------------ #
 
-struct AlphaBetaPruning{Teval} <: Player
+struct StochasticMinimax{Teval} <: Player
     evaluator::Teval
     depth::Int
 end
+
+function minimax(p::StochasticMinimax, s::State, depth::Int)::Tuple{Float64,Tuple{Int,Int}}
+    if depth == 0 || game_over(s)[1]
+        vals = p.evaluator(s)
+        val = vals[1] - vals[2]
+        if s.player == 1
+            return val, (0, 0)
+        else
+            return -val, (0, 0)
+        end
+    end
+
+    actions = legal_actions(s)
+
+    if length(actions) == 0  # this guy can't go. Let him pass
+        return -minimax(p, do_pass(s), depth-1)[1], (0 ,0)
+    end
+
+    values = [-minimax(p, do_action(s, a), depth-1)[1] for a in actions]
+
+    probs = values + abs(minimum(values)) + 1  # shift up so they all > 0
+    probs = cumsum(probs ./ sum(probs))        # turn into cdf
+    index = searchsortedfirst(probs, rand())   # sample from the cdf
+
+    return values[index], actions[index]
+end
+
+select_action(p::StochasticMinimax, s::State) = minimax(p, s, p.depth)[2]
+
+
+# ------------------ #
+# Alpha beta pruning #
+# ------------------ #
+
+mutable struct AlphaBetaPruning{Teval} <: Player
+    evaluator::Teval
+    depth::Int
+    searched::Int
+end
+
+AlphaBetaPruning(evaluator, depth::Int) = AlphaBetaPruning(evaluator, depth, 0)
 
 function alphabeta(p::AlphaBetaPruning, s::State, depth::Int, alpha, beta)
     if depth == 0 || game_over(s)[1]
@@ -358,6 +401,7 @@ function alphabeta(p::AlphaBetaPruning, s::State, depth::Int, alpha, beta)
 
     best_action = actions[1]
     for action in actions
+        p.searched += 1
         if alpha >= beta
             break
         end
@@ -370,7 +414,15 @@ function alphabeta(p::AlphaBetaPruning, s::State, depth::Int, alpha, beta)
     return alpha, best_action
 end
 
-select_action(p::AlphaBetaPruning, s::State) = alphabeta(p, s, p.depth, -Inf, Inf)[2]
+function select_action(p::AlphaBetaPruning, s::State)
+    start_time = time()
+    p.searched = 0
+    out = alphabeta(p, s, p.depth, -Inf, Inf)[2]
+    end_time = time()
+    print("From state ($(s.p1_placed), $(s.p2_placed)) I searched $(p.searched) actions")
+    println(" in $(end_time - start_time) seconds")
+    out
+end
 
 # ----------------- #
 # Tournament Server #
@@ -459,7 +511,7 @@ usage:
 include("reversi.jl")
 player = Reversi.AlphaBetaPruning(Reversi.weighted_evaluator, 9)
 
-# assume we are player 2
+# assuming we are player 2
 tp = Reversi.TournamentPlayer(player, 2)
 Reversi.play_game(tp)
 =#
@@ -471,9 +523,23 @@ TODO:
 - Make weights depend on tile positions
 - Do rollouts in parallel
 - Memoize?
-- Do training to optimize weights
+- Do training to optimize weights. Strategy would be:
+    - Play a few thousand games with my static weights to gen training data
+        - Could use my alpha-beta with softmax instead of max for move
+          selection
+        - Would just need to store the History::Vector{State}
+    - Train a unique set of weights for each round of the game
+    - Start training at latest rounds of the game. I can do a full evaluation
+      at these stages because depth isn't too high
+    - Loss function could be...
+        - cross entropy between softmax dist implied by current weights and ???
+        - MSE between greedy policy implied by the weights and "optimal" policy
+    - More info here: https://www.tjhsst.edu/~rlatimer/techlab10/Per5/FourthQuarter/ChenPaperQ4-10.pdf
 - Use my alpha-beta with low depth as rollout policy for MCTS in a deepmind
   style algo
+- timeouts
+- Iterative deepening: do depth 2 search, then 3, then 4, and so on until time
+  per move runs out
 =#
 
 end # module
